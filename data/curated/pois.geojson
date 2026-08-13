@@ -1,0 +1,6 @@
+{
+  "type": "FeatureCollection",
+  "_sample": false,
+  "_readme": "Points of interest, traced by hand at geojson.io. Each feature is a Point with properties: name (required), cat (required, one of the CATEGORIES keys in scripts/build-data.mjs: lecture, academic, admin, hostel, mess, canteen, shop, library, health, sports, transport, water, atm, worship, toilet, parking, green), and optional building + level (for an indoor POI — it must sit inside a room on that building+level), aliases (array of alternate names), hours, desc, wheelchair, phone, url, kind. Indoor POIs are NOT drawn as dots; the room containing one is highlighted on its floor.",
+  "features": []
+}

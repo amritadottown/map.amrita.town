@@ -1,0 +1,6 @@
+{
+  "type": "FeatureCollection",
+  "_sample": false,
+  "_readme": "Indoor floor plans, traced by hand at geojson.io. Each feature is a Polygon with properties: building (EXACT name of the building in data/curated/buildings.geojson — names must be unique), level (integer, 0 = ground floor), room (display name, e.g. 'Room 203'), kind (room | corridor | stairs | lift | toilet), and optional id. Rooms on the same building+level must not overlap. The multi-floor view shows one building+level at a time; rooms that carry an indoor POI (see pois.geojson) render brighter, with no dot pins.",
+  "features": []
+}
