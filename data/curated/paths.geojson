@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "_source": "OpenStreetMap (ODbL)",
   "_sample": false,
-  "_readme": "Walkable paths and drivable roads. The roads in this file came from OpenStreetMap (ODbL) — a community base to trace against. Trace more with the in-app draw tool: kind (path | road | steps) and optional surface (paved | unpaved). Routing topology comes from exact coordinate identity: where two lines join, their shared endpoints MUST be the same point, so snap new lines to existing endpoints.",
+  "_readme": "Walkable paths and drivable roads. The roads in this file came from OpenStreetMap (ODbL) \u2014 a community base to trace against. Trace more with the in-app draw tool: kind (path | road | steps) and optional surface (paved | unpaved). Routing topology comes from exact coordinate identity: where two lines join, their shared endpoints MUST be the same point, so snap new lines to existing endpoints.",
   "features": [
     {
       "type": "Feature",
@@ -11106,6 +11106,178 @@
             12.889081
           ]
         ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "road",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.675166,
+            12.894773
+          ],
+          [
+            77.675078,
+            12.894561
+          ]
+        ],
+        "type": "LineString"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "road",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.675298,
+            12.894642
+          ],
+          [
+            77.675225,
+            12.894609
+          ],
+          [
+            77.675157,
+            12.894592
+          ],
+          [
+            77.675112,
+            12.894579
+          ],
+          [
+            77.675088,
+            12.89457
+          ]
+        ],
+        "type": "LineString"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "road",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.675674,
+            12.89549
+          ],
+          [
+            77.676073,
+            12.896091
+          ],
+          [
+            77.676144,
+            12.896091
+          ],
+          [
+            77.676228,
+            12.896103
+          ],
+          [
+            77.676302,
+            12.896169
+          ],
+          [
+            77.676401,
+            12.896331
+          ],
+          [
+            77.676465,
+            12.896351
+          ]
+        ],
+        "type": "LineString"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "road",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.675599,
+            12.897698
+          ],
+          [
+            77.675601,
+            12.897585
+          ]
+        ],
+        "type": "LineString"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "road",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.676415,
+            12.893508
+          ],
+          [
+            77.676517,
+            12.89311
+          ],
+          [
+            77.676849,
+            12.893101
+          ],
+          [
+            77.676848,
+            12.89304
+          ],
+          [
+            77.676875,
+            12.892982
+          ],
+          [
+            77.676802,
+            12.892643
+          ],
+          [
+            77.677001,
+            12.892543
+          ],
+          [
+            77.677048,
+            12.892484
+          ],
+          [
+            77.677231,
+            12.89241
+          ],
+          [
+            77.677223,
+            12.892337
+          ],
+          [
+            77.677083,
+            12.891844
+          ],
+          [
+            77.677908,
+            12.891667
+          ]
+        ],
+        "type": "LineString"
       }
     }
   ]
