@@ -73,7 +73,10 @@ async function start() {
     container: 'map',
     style: buildStyle(geo, campus, resolved(), base),
     center: campus.meta.center,
-    zoom: 15.1,
+    // Zoomed into the campus but not filling the viewport — the dimmed
+    // surroundings stay visible around the wall. (MapLibre v4 uses 512px
+    // tiles, so this renders roughly like z18 on a 256px-tile basemap.)
+    zoom: 16.8,
     minZoom: 13,
     maxZoom: 19.5,
     maxBounds: [[77.66, 12.88], [77.69, 12.91]],

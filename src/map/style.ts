@@ -32,6 +32,10 @@ const PALETTE = {
     route: '#58a6ff',
     focus: '#61d47c',
     dim: '#05070a',
+    // Translucent wash over everything outside the campus wall. Dark on dark
+    // is subtle (the background is already near-black); the effect shows on
+    // light mode and over the satellite basemap.
+    outside: 'rgba(0, 0, 0, 0.5)',
     floorBase: '#202832',
     floorEdge: '#2e3a47',
     floorLabel: '#aeb8c4',
@@ -56,6 +60,7 @@ const PALETTE = {
     route: '#1a5fb4',
     focus: '#1d7a41',
     dim: '#f4f3ef',
+    outside: 'rgba(15, 20, 27, 0.5)',
     floorBase: '#d2cdc0',
     floorEdge: '#b7b0a0',
     floorLabel: '#333a44',
@@ -88,6 +93,9 @@ export function buildStyle(
       floor: { type: 'geojson', data: empty },
       pois: { type: 'geojson', data: empty },
       route: { type: 'geojson', data: empty },
+      // The world outside the campus wall, one polygon with the wall as a
+      // hole — the spotlight that dims everything off campus.
+      outside: src(outsideFC(geo.boundary)),
       // Optional satellite basemap (ESRI World Imagery, no API key). Only
       // loaded when the user turns the Satellite toggle on; off by default so
       // the map stays fully offline and self-drawn. Attribution is shown in
@@ -125,6 +133,7 @@ export function buildStyle(
         paint: {
           'line-color': C.roadCase,
           'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 2, 16, 7, 19, 22],
+          'line-opacity': 0.45,
         },
       },
       {
@@ -134,6 +143,7 @@ export function buildStyle(
         paint: {
           'line-color': C.road,
           'line-width': ['interpolate', ['exponential', 1.6], ['zoom'], 13, 1, 16, 4.5, 19, 16],
+          'line-opacity': 0.35,
         },
       },
       {
@@ -144,6 +154,7 @@ export function buildStyle(
         paint: {
           'line-color': C.path,
           'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 14, 0.6, 17, 2, 19, 5],
+          'line-opacity': 0.35,
         },
       },
       {
@@ -155,7 +166,19 @@ export function buildStyle(
           'line-color': C.steps,
           'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 15, 1.5, 19, 6],
           'line-dasharray': [1, 1],
+          'line-opacity': 0.35,
         },
+      },
+
+      // Everything outside the campus wall sits under this translucent veil —
+      // the flat background, satellite imagery and the surrounding roads — so
+      // the campus reads as the bright spot of the map. It sits above the
+      // ground and road layers but below every layer that only draws inside
+      // the campus (buildings, floors, POIs, routes), so nothing on campus is
+      // ever dimmed. The wall itself is the hole in the polygon.
+      {
+        id: 'outside-dim', type: 'fill', source: 'outside',
+        paint: { 'fill-color': C.outside },
       },
 
       {
@@ -307,6 +330,54 @@ export function buildStyle(
         },
       },
     ],
+  }
+}
+
+/**
+ * The area outside the campus wall as a single polygon with every boundary
+ * ring (each parcel, and any hole inside a parcel) cut out as a hole. The
+ * outer box is huge so the veil covers the whole viewport at every zoom and
+ * pan. Rings are wound to the GeoJSON right-hand rule — exterior ring
+ * counterclockwise, holes clockwise — though MapLibre re-winds on load
+ * either way.
+ */
+function outsideFC(boundary: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
+  const signedArea = (ring: number[][]) => {
+    let s = 0
+    for (let i = 0; i < ring.length - 1; i++) {
+      const a = ring[i]!, b = ring[i + 1]!
+      s += a[0]! * b[1]! - b[0]! * a[1]!
+    }
+    return s / 2
+  }
+  // Holes run clockwise (negative area); reverse the ring if it is not.
+  const asHole = (ring: number[][]) => (signedArea(ring) < 0 ? ring : [...ring].reverse())
+
+  const holes: number[][][] = []
+  for (const f of boundary.features ?? []) {
+    const g = f.geometry
+    if (!g) continue
+    if (g.type === 'Polygon') g.coordinates.forEach((r) => holes.push(asHole(r)))
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach((p) => p.forEach((r) => holes.push(asHole(r))))
+  }
+
+  // A boundary with no parcel (a broken/empty extract) must not dim the
+  // entire world — with no hole the veil would cover everything.
+  if (holes.length === 0) return { type: 'FeatureCollection', features: [] }
+
+  return {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      properties: {},
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [[-180, -89], [180, -89], [180, 89], [-180, 89], [-180, -89]],
+          ...holes,
+        ],
+      },
+    }],
   }
 }
 

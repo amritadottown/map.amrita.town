@@ -14,7 +14,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { pointInRing, ringsOf, inAnyRing } from './geometry.mjs'
+import { pointInRing, ringsOf, inAnyRing, centroidOf } from './geometry.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const CURATED = join(ROOT, 'data/curated')
@@ -422,7 +422,9 @@ async function main() {
     meta: {
       name: 'Amrita Vishwa Vidyapeetam, Bengaluru',
       built: new Date().toISOString().slice(0, 10),
-      center: [77.6745, 12.8946],
+      // The centroid of the boundary parcels, so the map opens centred on
+      // the campus however the wall has been drawn.
+      center: centroidOf(boundary.features),
       attribution: '(c) OpenStreetMap contributors (ODbL) · community-curated additions',
       counts,
       ...(sampleFiles.length ? { sample: true } : {}),

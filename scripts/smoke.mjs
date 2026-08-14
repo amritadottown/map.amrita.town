@@ -86,6 +86,11 @@ ok(ringsOf({ type: 'FeatureCollection', features: [{ type: 'Feature', properties
 // The built boundary carries every polygon parcel.
 ok(geo.boundary.features.length >= 1, `built boundary renders every parcel (${geo.boundary.features.length})`)
 ok(geo.boundary.features.every((f) => f.geometry.type === 'Polygon'), 'every boundary parcel is a Polygon')
+// The map opens centred on the boundary centroid — it must land on campus.
+const [cLon, cLat] = campus.meta.center
+ok(inAnyRing(cLon, cLat, ringsOf(geo.boundary.features)),
+   'meta.center is the centroid and lies inside the campus boundary',
+   `${+cLon.toFixed(5)}, ${+cLat.toFixed(5)}`)
 
 // Every indoor POI must sit inside a room, and every POI-room link must resolve.
 const roomsById = new Map(campus.rooms.map((r) => [r.id, r]))
