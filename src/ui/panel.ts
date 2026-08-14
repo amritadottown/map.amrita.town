@@ -96,7 +96,7 @@ export function showPoi(p: Poi) {
     p.desc ? `<p class="p-note">${esc(p.desc)}</p>` : '',
     p.building ? `<p class="p-note">Indoor places have no pin on the map — the room
       containing this place glows brighter on its floor plan instead.</p>` : '',
-    `<p class="src">Hand-surveyed, community-curated — verify before relying on it</p>`,
+    `<p class="src">Verify before relying on it</p>`,
   ].join('')
 
   shell(p.name, cat?.label ?? p.cat, body)
@@ -116,7 +116,6 @@ export function showBuilding(name: string, cat: string, levels: number) {
          Rooms glow where a service is listed; the focused room is brightest.</p>`
       : `<p class="p-note">No indoor floor plan is mapped yet. Trace one in
          <code>data/curated/indoor.geojson</code> and it appears here on the next build.</p>`,
-    `<p class="src">Hand-traced, community-curated</p>`,
   ].join('')
 
   shell(name, meta?.label ?? cat, body)
@@ -131,7 +130,6 @@ export function showRoom(name: string, building: string, level: number) {
     `<p class="p-note">No service is listed for this room yet. Add one in
        <code>data/curated/pois.geojson</code> with the room's building and floor,
        and this room will glow on its floor plan.</p>`,
-    `<p class="src">Hand-traced, community-curated</p>`,
   ].join('')
 
   shell(name, `${building} · ${floorLabel(level)}`, body)
@@ -145,10 +143,6 @@ export function showAbout(campus: Campus) {
   const rooms = campus.rooms?.length ?? 0
 
   const body = `
-    <p class="p-note">Everything here is community-curated. Nothing is scraped and
-    nothing is invented — every polygon and pin was traced by hand and lives in
-    the <code>data/curated/</code> folder of this project.</p>
-
     <div class="p-sec">Map & places</div>
     <p class="p-note"><b>${total}</b> places (${indoor} indoors), <b>${rooms}</b> rooms across
     <b>${Object.keys(campus.meta.counts).length}</b> categories. Walking times are computed

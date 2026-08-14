@@ -32,19 +32,36 @@ export function inAnyRing(lon, lat, rings) {
  * [0, 0] when there is nothing to measure.
  */
 export function centroidOf(features) {
-  let a = 0, cx = 0, cy = 0
+  // The campus may be several disjoint parcels (a hostel block across the
+  // road, a back ground). The area-weighted centroid of all of them lands in
+  // the gap between them — outside every parcel. Center on the largest
+  // parcel instead, which is the main site.
+  let best = null
+  let bestArea = -1
   for (const f of features ?? []) {
     const g = f.geometry
     if (!g || g.type !== 'Polygon') continue
+    let a = 0
     for (const ring of g.coordinates) {
       for (let i = 0; i < ring.length - 1; i++) {
         const x1 = ring[i][0], y1 = ring[i][1]
         const x2 = ring[i + 1][0], y2 = ring[i + 1][1]
-        const cross = x1 * y2 - x2 * y1
-        a += cross
-        cx += (x1 + x2) * cross
-        cy += (y1 + y2) * cross
+        a += Math.abs(x1 * y2 - x2 * y1)
       }
+    }
+    if (a > bestArea) { bestArea = a; best = f }
+  }
+  if (!best) return [0, 0]
+  const g = best.geometry
+  let a = 0, cx = 0, cy = 0
+  for (const ring of g.coordinates) {
+    for (let i = 0; i < ring.length - 1; i++) {
+      const x1 = ring[i][0], y1 = ring[i][1]
+      const x2 = ring[i + 1][0], y2 = ring[i + 1][1]
+      const cross = x1 * y2 - x2 * y1
+      a += cross
+      cx += (x1 + x2) * cross
+      cy += (y1 + y2) * cross
     }
   }
   if (a === 0) return [0, 0]

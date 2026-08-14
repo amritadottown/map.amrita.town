@@ -50,9 +50,9 @@ declare module 'maplibre-gl-draw' {
     getSelected(): GeoJSON.FeatureCollection
     delete(ids: string | string[]): void
     setFeatureProperty(featureId: string, property: string, value: unknown): void
-    on(type: 'draw.create' | 'draw.update' | 'draw.delete', listener: (e: DrawEvent) => void): this
-    on(type: 'draw.modechange', listener: (e: DrawEvent) => void): this
-    on(type: string, listener: (e: DrawEvent) => void): this
+    // NOTE: the instance has NO .on() — 1.6.x has no event emitter of its
+    // own. It fires 'draw.create' | 'draw.update' | 'draw.delete' |
+    // 'draw.modechange' on the map instead; listen with map.on(type, fn).
   }
 
   export default MapboxDraw

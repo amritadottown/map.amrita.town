@@ -425,7 +425,7 @@ async function main() {
       // The centroid of the boundary parcels, so the map opens centred on
       // the campus however the wall has been drawn.
       center: centroidOf(boundary.features),
-      attribution: '(c) OpenStreetMap contributors (ODbL) · community-curated additions',
+      attribution: '(c) OpenStreetMap contributors (ODbL)',
       counts,
       ...(sampleFiles.length ? { sample: true } : {}),
     },

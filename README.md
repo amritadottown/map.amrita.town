@@ -4,7 +4,6 @@ A multi-floor map of Amrita Vishwa Vidyapeetam, Bengaluru.
 
 The map shows buildings, rooms, canteens, and walking routes.
 The building footprints and the campus wall come from OpenStreetMap (ODbL).
-Everything else is community-curated.
 There is no tile server and no runtime data source.
 The map renders from three static JSON files.
 
@@ -168,7 +167,9 @@ The quickest way is the in-app draw tool.
 2. Turn on the satellite view. The globe button is in the header.
 3. Turn on the draw tool. The pencil button is next to the globe button.
 4. Choose the layer type: Boundary, Building, Path, POI, or Room.
-5. Click on the map to add points. Double-click or press Enter to finish.
+5. Click on the map to add points.
+   Press F (or Enter) to finish the shape, Esc to cancel it,
+   and Ctrl+Z to remove the last point you placed.
 6. Fill in the properties form and select Add to map.
 7. Select Save. The map rebuilds and reloads.
 
@@ -268,11 +269,10 @@ OpenStreetMap. OpenStreetMap data is © OpenStreetMap contributors and is
 licensed under the ODbL. Keep the attribution in the app footer and in the
 About panel.
 
-All paths, rooms, and places are hand-traced, community-curated data.
+All paths, rooms, and places are traced from the satellite view.
 Do not copy coordinates out of another map.
 Trace each point and polygon from the satellite view.
 
 ## License
 
-Code is MIT. Map data is © OpenStreetMap contributors (ODbL) plus
-community-curated additions.
+Code is MIT. Map data is © OpenStreetMap contributors (ODbL).

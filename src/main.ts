@@ -560,9 +560,13 @@ async function start() {
       // The draw plugin adds its layers to the style; after a rebuild they
       // are gone, so re-attach the control to bring them back. The re-attach
       // builds a fresh store, so save the drafts first and put them back —
-      // a theme switch must not discard unsaved work.
+      // a theme switch must not discard unsaved work. Shapes that were still
+      // being drawn (no _draft tag, no form yet) cannot survive the store
+      // rebuild — leave them out rather than re-add an orphan that could
+      // never be finished or saved.
       if (draw) {
         const saved = draw.getAll().features
+          .filter((f) => f.properties?.['_draft'] === true)
         try { map.removeControl(draw) } catch { /* not added */ }
         map.addControl(draw, 'top-left')
         for (const f of saved) {
@@ -615,12 +619,17 @@ async function start() {
   // button stays disabled unless GET /curated/buildings.geojson answers,
   // which only the local dev middleware serves.
   //
-  // Drawing is powered by maplibre-gl-draw. Click to add points; Enter or
-  // double-click finishes a shape; Esc cancels it. Finished shapes stay in
-  // the editor until saved: click one to select it, double-click it to edit
-  // its points (drag vertices, drag the midpoint handles on the outline to
-  // insert points, Alt+click anywhere on the shape to insert a vertex there,
-  // Alt+click a vertex to delete it). Middle-drag pans the map at any time.
+  // Drawing is powered by maplibre-gl-draw. Click to add points; F or Enter
+  // finishes a shape, Esc cancels it, Ctrl+Z removes the last point placed.
+  // Finished shapes stay in the editor until saved: click one to select it,
+  // double-click it to edit its points (drag vertices, drag the midpoint
+  // handles on the outline to insert points, Alt+click anywhere on the shape
+  // to insert a vertex there, Alt+click a vertex to delete it). Middle-drag
+  // pans the map at any time.
+  //
+  // Note: maplibre-gl-draw 1.6.x has no event emitter of its own — it fires
+  // draw.create / draw.update / draw.delete / draw.modechange on the map.
+  // Listen on the map (see ensureDraw), never on the draw instance.
   type DrawLayer = 'boundary' | 'building' | 'path' | 'poi' | 'room'
   interface Draft {
     id: number
@@ -664,7 +673,8 @@ async function start() {
     poi: 'Click where the place is.',
     room: 'Click the room corners. Rooms on one floor must not overlap.',
   }
-  const EDIT_HINT = 'Enter or double-click finishes · Esc cancels · double-click a draft to edit its points · Alt+click a segment adds a point · Alt+click a point removes it'
+  const DRAW_KEYS = '<kbd>F</kbd> finish · <kbd>Esc</kbd> cancel · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo last point'
+  const EDIT_KEYS = 'Alt+click a selected draft adds/removes a point · double-click a draft to edit it'
 
   let draw: MapboxDraw | null = null
   let drawOn = false
@@ -702,7 +712,7 @@ async function start() {
           ${actions}</form>`
       case 'path':
         return `<form class="dt-form">
-          <label>Kind <select name="kind"><option value="path">path</option><option value="road">road</option><option value="steps">steps</option></select></label>
+          <label>Kind <select name="kind"><option value="road" selected>road</option><option value="path">path</option><option value="steps">steps</option></select></label>
           <label>Surface <select name="surface"><option value="">unknown</option><option value="paved">paved</option><option value="unpaved">unpaved</option></select></label>
           ${actions}</form>`
       case 'poi':
@@ -740,10 +750,10 @@ async function start() {
       `<div class="dt-head"><span class="dt-title">Draw</span>` +
       `<button type="button" class="x" data-dt-close aria-label="Close draw mode">&times;</button></div>` +
       `<div class="dt-layers">${chips}</div>` +
-      `<p class="dt-hint">${DRAW_HINTS[drawLayer]}<br><span class="dt-sub">${EDIT_HINT}</span></p>` +
+      `<p class="dt-hint">${DRAW_HINTS[drawLayer]}<br><span class="dt-sub">${placing ? DRAW_KEYS : EDIT_KEYS}</span></p>` +
       (pendingForm ? formHtml
         : placing
-          ? '<p class="dt-mode">Placing points… Enter or double-click to finish.</p>'
+          ? '<p class="dt-mode">Placing points… F or Enter to finish.</p>'
           : '<p class="dt-mode">Pick a layer chip to start drawing. Double-click a draft to edit its points.</p>') +
       draftsHtml +
       `<div class="dt-save"><button type="button" data-dt-save ${drafts.length ? '' : 'disabled'}>Save ${drafts.length}</button>` +
@@ -756,9 +766,12 @@ async function start() {
     if (!drawOn) return
     const el = drawToolbar.querySelector('.dt-mode')
     if (!el) return
-    el.textContent = draw?.getMode().startsWith('draw_') ?? false
-      ? 'Placing points… Enter or double-click to finish.'
+    const drawing = draw?.getMode().startsWith('draw_') ?? false
+    el.textContent = drawing
+      ? 'Placing points… F or Enter to finish.'
       : 'Pick a layer chip to start drawing. Double-click a draft to edit its points.'
+    const sub = drawToolbar.querySelector('.dt-hint .dt-sub')
+    if (sub) sub.innerHTML = drawing ? DRAW_KEYS : EDIT_KEYS
   }
 
   function ensureDraw(): MapboxDraw {
@@ -769,10 +782,15 @@ async function start() {
         defaultMode: 'simple_select',
       })
       map.addControl(draw, 'top-left')
-      draw.on('draw.create', onDrawCreate)
-      draw.on('draw.update', onDrawUpdate)
-      draw.on('draw.delete', onDrawDelete)
-      draw.on('draw.modechange', () => paintDrawMode())
+      // maplibre-gl-draw 1.6.x has no .on() of its own — the instance only
+      // exposes add/get/delete/changeMode. Its events (draw.create, …) are
+      // fired on the MAP, so listen there. These listeners live on the map
+      // and survive the style rebuilds a theme switch triggers; the draw
+      // control itself is re-attached separately in onThemeChange.
+      map.on('draw.create', onDrawCreate)
+      map.on('draw.update', onDrawUpdate)
+      map.on('draw.delete', onDrawDelete)
+      map.on('draw.modechange', () => paintDrawMode())
     }
     return draw
   }
@@ -783,7 +801,10 @@ async function start() {
     drawBtn.classList.add('on')
     map.getCanvas().style.cursor = 'crosshair'
     map.doubleClickZoom.disable()
-    ensureDraw().changeMode(MODE_FOR[drawLayer])
+    // Sit in simple_select: the user picks a layer chip to start drawing.
+    // Auto-entering a draw mode would lock the first shape to the default
+    // layer and block switching chips until that shape is cancelled.
+    ensureDraw().changeMode('simple_select')
     paintDrawToolbar()
   }
 
@@ -801,6 +822,36 @@ async function start() {
     // page reloads — reopening draw mode shows the list again.
   }
 
+  /** Strip consecutive duplicate vertices from a finished shape. Undo leaves
+   *  a zero-length segment behind (the plugin's vertex bookkeeping needs the
+   *  slot) — invisible on the map, but it would otherwise be saved into the
+   *  curated data. Lines keep at least 2 points; polygon rings come closed
+   *  (first point repeated at the end) and keep at least 3 corners plus the
+   *  closing point. */
+  function dedupeGeometry(g: GeoJSON.Geometry): GeoJSON.Geometry {
+    if (g.type === 'LineString') {
+      const out: [number, number][] = []
+      for (const c of g.coordinates) {
+        const last = out[out.length - 1]
+        if (!last || last[0] !== c[0] || last[1] !== c[1]) out.push(c as [number, number])
+      }
+      if (out.length >= 2 && out.length !== g.coordinates.length) return { ...g, coordinates: out }
+      return g
+    }
+    if (g.type === 'Polygon') {
+      const ring = g.coordinates[0]
+      if (!ring?.length) return g
+      const out: [number, number][] = []
+      for (const c of ring) {
+        const last = out[out.length - 1]
+        if (!last || last[0] !== c[0] || last[1] !== c[1]) out.push(c as [number, number])
+      }
+      if (out.length >= 4 && out.length !== ring.length) return { ...g, coordinates: [out] }
+      return g
+    }
+    return g
+  }
+
   function onDrawCreate(e: { features?: GeoJSON.Feature[] }) {
     if (!drawOn || !draw) return
     const f = e.features?.[0]
@@ -812,7 +863,15 @@ async function start() {
     if (pendingForm) discardPending()
     const id = String(f.id)
     draw.setFeatureProperty(id, '_draft', true)
-    pendingForm = { featureId: id, layer: drawLayer, geometry: f.geometry }
+    const geometry = dedupeGeometry(f.geometry)
+    if (geometry !== f.geometry) {
+      // api.add replaces the feature's properties, so carry the _draft tag
+      // through the re-add or the guard above would stop trusting it.
+      try {
+        draw.add({ ...f, properties: { ...f.properties, _draft: true }, geometry })
+      } catch { /* keep the un-deduped shape */ }
+    }
+    pendingForm = { featureId: id, layer: drawLayer, geometry }
     paintDrawToolbar()
   }
 
@@ -855,7 +914,7 @@ async function start() {
     return undefined
   }
 
-  /** Finish the current shape (Enter or double-click). */
+  /** Finish the current shape (F or Enter). */
   function finishCurrentShape() {
     if (pendingForm || !draw) return
     const f = inProgressShape()
@@ -863,10 +922,14 @@ async function start() {
     const g = f.geometry
     if (g.type === 'Polygon') {
       const ring = g.coordinates[0]
-      if (!ring) return
+      if (!ring?.length) return
+      // The plugin's rings come back closed — the first point repeated at
+      // the end — with the rubber-band duplicate of the last point right
+      // before the closing point. Strip both, then require 3+ real corners.
       const a = ring[0], b = ring[ring.length - 1]
-      // In-progress rings are open (last point != first) and need 3+ corners.
-      if (ring.length < 4 || (a && b && a[0] === b[0] && a[1] === b[1])) return
+      const closed = !!a && !!b && a[0] === b[0] && a[1] === b[1]
+      const real = closed ? ring.slice(0, -1).slice(0, -1) : ring.slice(0, -1)
+      if (real.length < 3) return
     } else if (g.type === 'LineString') {
       if (g.coordinates.length < 3) return // trailing duplicate; need 2+ real points
     } else {
@@ -880,11 +943,64 @@ async function start() {
     const f = inProgressShape()
     if (f?.id) { try { draw?.delete(String(f.id)) } catch { /* noop */ } }
     draw?.changeMode('simple_select')
+    // api.changeMode fires draw.modechange silently, so paint the hint
+    // ourselves — otherwise the toolbar keeps saying “Placing points…”.
+    paintDrawMode()
+  }
+
+  /**
+   * Remove the last placed point of the in-progress shape (Ctrl+Z). The
+   * plugin stores in-progress lines and polygon rings with a trailing
+   * duplicate of the last real point (the rubber band that follows the
+   * cursor); polygons additionally come back closed (first point repeated).
+   * The shape is re-added with the same id — api.add mutates the stored
+   * feature in place. The plugin's internal vertex counter keeps its value,
+   * so the ring is re-pinned to the same length with a fresh duplicate at
+   * the end; dedupeGeometry then strips the leftover zero-length segment
+   * when the shape is finished. Returns false when there is nothing to undo.
+   */
+  function undoLastPoint(): boolean {
+    const mode = draw?.getMode() ?? ''
+    if (mode !== 'draw_line_string' && mode !== 'draw_polygon') return false
+    const f = inProgressShape()
+    if (!f?.id || !f.geometry) return false
+    const g = f.geometry
+    const coords = g.type === 'Polygon' ? g.coordinates[0] : g.type === 'LineString' ? g.coordinates : null
+    if (!coords?.length) return false
+    const id = String(f.id)
+    // Polygons come back from the plugin CLOSED — the first point repeated at
+    // the end — with the rubber-band duplicate of the last point just before
+    // it. Drop both to get the placed points; lines only carry the rubber band.
+    const real = (g.type === 'Polygon' ? coords.slice(0, -1) : coords).slice(0, -1)
+    // Below the minimum the shape is worthless — drop it and start over in
+    // the same mode (a fresh shape, no form, nothing saved).
+    const min = g.type === 'Polygon' ? 3 : 2
+    if (real.length < min) {
+      try { draw?.delete(id) } catch { /* noop */ }
+      draw?.changeMode(MODE_FOR[drawLayer])
+      paintDrawMode()
+      return true
+    }
+    // Drop the last real point, then re-pin the rubber band to the new last
+    // point so the plugin's vertex bookkeeping (currentVertexPosition) stays
+    // consistent. Polygon rings get one extra duplicate: incomingCoords
+    // strips the ring's final coordinate when the feature is replaced.
+    const rest = real.slice(0, -1)
+    const tail = rest[rest.length - 1]
+    if (!tail) return false
+    const next: [number, number][] = g.type === 'Polygon'
+      ? [...rest, tail, tail] as [number, number][]
+      : [...rest, tail] as [number, number][]
+    const updated: GeoJSON.Feature = g.type === 'Polygon'
+      ? { ...f, geometry: { type: 'Polygon', coordinates: [next] } }
+      : { ...f, geometry: { type: 'LineString', coordinates: next } }
+    draw?.add(updated)
+    return true
   }
 
   function labelFor(layer: DrawLayer, props: Record<string, string | number>): string {
     if (layer === 'room') return String(props.room)
-    if (layer === 'path') return `${props.kind} path`
+    if (layer === 'path') return String(props.kind)
     return String(props.name)
   }
 
@@ -971,11 +1087,11 @@ async function start() {
     if (dl) {
       // A shape in progress belongs to the current layer — switching now would
       // let the plugin's finish event stamp it with the new layer's file.
-      // Finish or cancel the shape before picking another layer.
+      // Drop the in-progress shape (it is never saved until its form is
+      // submitted) and start the new layer's mode instead.
       const mode = draw?.getMode() ?? ''
       if (drawOn && (mode === 'draw_polygon' || mode === 'draw_line_string' || mode === 'draw_point')) {
-        setDrawMsg('Finish or cancel the current shape first.')
-        return
+        cancelCurrentShape()
       }
       // An open form owns a shape in the store — drop it rather than orphan it.
       if (pendingForm) discardPending()
@@ -997,14 +1113,32 @@ async function start() {
     if (t.closest('[data-dt-save]')) void saveDrafts()
   })
 
-  // Double-click finishes the in-progress shape. The plugin's own double-click
-  // adds a vertex (or closes a polygon when it lands on the first vertex); we
-  // step in after that so the second click of the pair never leaves a stray
-  // point, matching how the old custom editor behaved. Middle-button
-  // double-clicks are pan gestures, not finish gestures.
-  map.on('dblclick', (e) => {
-    if (drawOn && e.originalEvent?.button !== 1) finishCurrentShape()
-  })
+  // Double-click while placing points must never finish the shape — F (or
+  // Enter) is the deliberate finish gesture. The plugin finishes a shape
+  // when a click lands exactly on the last placed point, which is what any
+  // double-click does, so swallow the second click of a double-click in
+  // capture phase before the map (and the plugin) ever sees it. The first
+  // click of the pair still places its point. A single click on the first
+  // vertex of a polygon still closes it (the plugin's own gesture), and in
+  // simple_select/direct_select double-clicks pass through untouched — that
+  // is how a draft is edited.
+  let lastMapDown: { t: number; x: number; y: number } | null = null
+  map.getContainer().addEventListener('mousedown', (e) => {
+    if (!drawOn || e.button !== 0) { lastMapDown = null; return }
+    const target = e.target as HTMLElement | null
+    const onCanvas = !!target?.classList?.contains('maplibregl-canvas')
+    const mode = draw?.getMode() ?? ''
+    const drawing = mode === 'draw_polygon' || mode === 'draw_line_string' || mode === 'draw_point'
+    const now = performance.now()
+    const isDbl = onCanvas && drawing && lastMapDown !== null &&
+      now - lastMapDown.t < 400 &&
+      Math.hypot(e.clientX - lastMapDown.x, e.clientY - lastMapDown.y) < 6
+    lastMapDown = { t: now, x: e.clientX, y: e.clientY }
+    if (isDbl) {
+      e.preventDefault()
+      e.stopImmediatePropagation()
+    }
+  }, true)
 
   // Alt+click on a selected shape edits it in place: clicking a point removes
   // that point, clicking anywhere else on the shape inserts a vertex on the
@@ -1215,12 +1349,28 @@ async function start() {
         stopDraw()
         return
       }
+      // Typing inside an input (the property form) must never trigger a
+      // drawing shortcut — and Ctrl+Z there must stay the browser's own
+      // text undo.
+      const target = e.target as HTMLElement | null
+      const typing = !!target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA' || target.isContentEditable)
+      if (e.key === 'f' || e.key === 'F') {
+        if (typing || pendingForm) return
+        if (e.metaKey || e.ctrlKey || e.altKey) return // Ctrl+F find etc.
+        finishCurrentShape()
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        if (typing || pendingForm) return
+        if (undoLastPoint()) e.preventDefault()
+        return
+      }
       if (e.key === 'Enter' && !pendingForm) {
-        const tag = (e.target as HTMLElement | null)?.tagName
-        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return
+        if (typing) return
         // The plugin finishes shapes itself when the canvas has focus (it
         // handles keyup there); only step in when focus is elsewhere.
-        if ((e.target as Element | null)?.classList?.contains('maplibregl-canvas')) return
+        if (target?.classList?.contains('maplibregl-canvas')) return
         finishCurrentShape()
         return
       }
