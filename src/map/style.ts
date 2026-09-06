@@ -12,60 +12,65 @@ import type { Campus, GeoData } from '../types'
  * and `poi`/`focus` flags, so a POI room reads brighter than its dimmer
  * neighbours and the focused room brightest of all — there are no dot pins
  * indoors.
+ *
+ * The palette follows the amrita.town.css brand: paper-coloured grounds with
+ * the canonical six tokens, and the accent (#ae0c3e light / #e0527a dark) is
+ * the only emphasis colour — routes, focus rings and the active floor outline
+ * all use it. Category colours come from the curated data, not from here.
  */
 const PALETTE = {
   dark: {
-    bg: '#0b0d10',
-    campus: '#10141a',
-    building: '#181d25',
-    buildingEdge: '#232a35',
-    named: '#1d2430',
-    road: '#2a313d',
-    roadCase: '#171b22',
-    path: '#2e3743',
-    steps: '#3a4250',
-    boundary: '#28303c',
-    label: '#9aa4b2',
-    labelHalo: '#0b0d10',
-    dotStroke: '#0b0d10',
-    routeHalo: '#0b0d10',
-    route: '#58a6ff',
-    focus: '#61d47c',
-    dim: '#05070a',
+    bg: '#181818',          // --base
+    campus: '#141414',      // the ground inside the wall, a shade of base
+    building: '#1d1d1d',
+    buildingEdge: '#333333',// --secondary on base
+    named: '#232323',
+    road: '#3a3a3a',
+    roadCase: '#1f1f1f',
+    path: '#2f2f2f',
+    steps: '#454545',
+    boundary: '#3a3a3a',
+    label: '#d9d9d9',       // --text
+    labelHalo: '#181818',   // --base
+    dotStroke: '#181818',
+    routeHalo: '#181818',
+    route: '#e0527a',       // --accent
+    focus: '#e0527a',       // --accent
+    dim: '#0e0e0e',
     // Translucent wash over everything outside the campus wall. Dark on dark
     // is subtle (the background is already near-black); the effect shows on
     // light mode and over the satellite basemap.
     outside: 'rgba(0, 0, 0, 0.5)',
-    floorBase: '#202832',
-    floorEdge: '#2e3a47',
-    floorLabel: '#aeb8c4',
-    floorLabelHalo: '#0b0d10',
-    activeOutline: '#61d47c',
+    floorBase: '#262626',
+    floorEdge: '#3a3a3a',
+    floorLabel: '#c9c9c9',
+    floorLabelHalo: '#181818',
+    activeOutline: '#e0527a',
   },
   light: {
-    bg: '#d7dade',
-    campus: '#eeece7',
-    building: '#dedbd3',
-    buildingEdge: '#c4bfb3',
-    named: '#d5d0c5',
+    bg: '#e9e3d5',          // the world outside the wall, a deeper paper
+    campus: '#faf7f0',      // --base: the campus ground
+    building: '#f1ece1',
+    buildingEdge: '#cfc8b8',// --secondary on base
+    named: '#e7e0d0',
     road: '#ffffff',
-    roadCase: '#c8c3b7',
-    path: '#ffffff',
-    steps: '#a9a294',
-    boundary: '#a8a294',
-    label: '#2f343b',
-    labelHalo: '#ffffff',
-    dotStroke: '#ffffff',
-    routeHalo: '#ffffff',
-    route: '#1a5fb4',
-    focus: '#1d7a41',
-    dim: '#f4f3ef',
-    outside: 'rgba(15, 20, 27, 0.5)',
-    floorBase: '#d2cdc0',
-    floorEdge: '#b7b0a0',
-    floorLabel: '#333a44',
-    floorLabelHalo: '#eeece7',
-    activeOutline: '#1d7a41',
+    roadCase: '#d6cfbd',
+    path: '#fffdf6',
+    steps: '#c9c1ae',
+    boundary: '#b7af9d',
+    label: '#000000d0',     // --text
+    labelHalo: '#faf7f0',   // --base
+    dotStroke: '#faf7f0',
+    routeHalo: '#faf7f0',
+    route: '#ae0c3e',       // --accent
+    focus: '#ae0c3e',       // --accent
+    dim: '#e9e2d2',
+    outside: 'rgba(0, 0, 0, 0.4)',
+    floorBase: '#e3dbc9',
+    floorEdge: '#c4bba6',
+    floorLabel: '#5a5445',
+    floorLabelHalo: '#faf7f0',
+    activeOutline: '#ae0c3e',
   },
 } as const
 
@@ -386,4 +391,21 @@ function catColour(campus: Campus): maplibregl.ExpressionSpecification {
   const pairs: (string | string[])[] = []
   for (const [k, v] of Object.entries(campus.categories)) pairs.push(k, v.color)
   return ['match', ['get', 'cat'], ...pairs, '#8b949e'] as unknown as maplibregl.ExpressionSpecification
+}
+
+/**
+ * Colours for the maplibre-gl-draw editing layers (gl-draw-*). The plugin
+ * ships cyan/amber defaults that fight the brand, so the app overrides the
+ * paint of every gl-draw-* layer after attaching the control: inactive shapes
+ * in the boundary grey, active and in-progress shapes in the accent, and
+ * vertex halos in the base.
+ */
+export function drawTints(theme: 'light' | 'dark'): {
+  inactive: string
+  active: string
+  static: string
+  halo: string
+} {
+  const C = PALETTE[theme]
+  return { inactive: C.boundary, active: C.route, static: C.label, halo: C.dotStroke }
 }

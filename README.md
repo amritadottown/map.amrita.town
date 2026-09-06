@@ -18,7 +18,7 @@ The app has these features:
 
 - A search palette (press Cmd+K)
 - Category layers
-- Light and dark themes
+- Themes that follow the OS: `auto → light → dark` cycle button
 - A multi-floor building view
 - Walking and cycling routes with an ETA
 - An optional satellite view (ESRI World Imagery, no API key)
@@ -141,23 +141,23 @@ Put each indoor place inside its room polygon. The build drops an indoor place t
 
 Use one of these keys for the `cat` property.
 
-- `lecture` — Lecture halls
-- `academic` — Academic blocks
-- `admin` — Admin and help
-- `hostel` — Hostels
-- `mess` — Messes
-- `canteen` — Canteens and cafes
-- `shop` — Shops
-- `library` — Library
-- `health` — Health
-- `sports` — Sports
-- `transport` — Transport
-- `water` — Water
-- `atm` — ATMs and banks
-- `worship` — Worship
-- `toilet` — Toilets
-- `parking` — Parking
-- `green` — Open ground
+- `lecture` — lecture halls
+- `academic` — academic blocks
+- `admin` — admin and help
+- `hostel` — hostels
+- `mess` — messes
+- `canteen` — canteens and cafes
+- `shop` — shops
+- `library` — library
+- `health` — health
+- `sports` — sports
+- `transport` — transport
+- `water` — water
+- `atm` — atms and banks
+- `worship` — worship
+- `toilet` — toilets
+- `parking` — parking
+- `green` — open ground
 
 ## How to trace the campus
 
@@ -232,10 +232,10 @@ A room that names a missing building is dropped at build time.
 
 Click a building with more than one floor.
 The floor bar appears at the bottom of the map.
-The floor bar shows one chip for each floor.
-The chip shows `G` for the ground floor.
+The floor bar shows one button for each floor.
+The button shows `G` for the ground floor.
 The map opens the ground floor of the building.
-Click a chip to switch to that floor.
+Click a button to switch to that floor.
 
 Search for a room to open its building and floor.
 Example: type `room 203` in the search palette.
@@ -261,6 +261,31 @@ Those files are empty. Trace them before you share the map.
 
 The build warns while any file carries `"_sample": true`.
 No file carries the marker now.
+
+## Style
+
+The app is styled by the canonical amrita.town brand stylesheet —
+`amrita.town.css` (see the sibling repo's `BRAND.md`). The six tokens
+(`--base`, `--text`, `--secondary`, `--secondary-light`, `--tertiary`,
+`--accent`) drive the page chrome, the scheme follows the operating system by
+default (`prefers-color-scheme`), and the theme button cycles `auto → light →
+dark` exactly like the brand demo. The map canvas palette lives in
+`src/map/style.ts` and reuses the same tokens; the accent is the only
+emphasis colour — routes, focus rings, the active floor outline, and the
+draw-edit shapes all use it.
+
+Documented deviations, allowed for consumers:
+
+- No global `text-transform: lowercase`. Building, room, and place names are
+  curated data (proper nouns); authored copy is lowercase by hand instead.
+- Floating surfaces (panel, palette, floor bar, route bar) fill with `--base`
+  instead of `--tertiary` so they read over the canvas.
+- Map label glyphs are self-hosted in `public/font` rather than the system
+  font — MapLibre needs a glyph PBF server, and staying self-hosted keeps the
+  map offline.
+- No `chip`, `pill`, `badge`, or `tag` classes anywhere — the brand bans them.
+  Layer toggles are the canonical `.filter-btn`, and the floor bar holds
+  `.fb-levels` buttons.
 
 ## Sources
 

@@ -114,16 +114,16 @@ async function check(name, width, height, theme) {
       try { return s.cssRules.length > 0 } catch { return false }
     }).length
     const bg = getComputedStyle(document.body).backgroundColor
-    const tok = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
+    const tok = getComputedStyle(document.documentElement).getPropertyValue('--base').trim()
     return { sheets, bg, tok }
   })
   ok(css.sheets > 0 && css.tok !== '', 'stylesheet applied',
-     css.tok === '' ? 'design tokens missing — CSS downloaded but not applied' : `--bg ${css.tok}`)
+     css.tok === '' ? 'design tokens missing — CSS downloaded but not applied' : `--base ${css.tok}`)
   ok(css.bg !== 'rgba(0, 0, 0, 0)', 'body has a painted background', css.bg)
 
   const dots = await page.evaluate(() =>
-    document.querySelectorAll('#layer-chips .chip').length)
-  ok(dots === expectedChips, `layer chips rendered (${dots}, expected ${expectedChips})`)
+    document.querySelectorAll('#layer-filters .filter-btn').length)
+  ok(dots === expectedChips, `layer filters rendered (${dots}, expected ${expectedChips})`)
 
   const sheetMode = await page.evaluate(() =>
     getComputedStyle(document.getElementById('layers-btn')).display !== 'none')
@@ -139,8 +139,8 @@ async function check(name, width, height, theme) {
 
   if (dots > 0) {
     const legend = await page.evaluate(() => {
-      const box = document.getElementById('layer-chips')
-      const chips = [...box.querySelectorAll('.chip')]
+      const box = document.getElementById('layer-filters')
+      const chips = [...box.querySelectorAll('.filter-btn')]
       const vw = document.documentElement.clientWidth
       const vh = document.documentElement.clientHeight
       return {
@@ -206,12 +206,12 @@ async function check(name, width, height, theme) {
       ok(floorBar, 'searching a room opens the floor bar')
 
       if (floorBar) {
-        const chips = await page.$$eval('#floor-bar .fb-chips button', (b) => b.map((x) => x.dataset.level))
-        ok(chips.length >= 2, `floor chips rendered (${chips.join(', ')})`, `levels: ${chips.join(', ')}`)
+        const chips = await page.$$eval('#floor-bar .fb-levels button', (b) => b.map((x) => x.dataset.level))
+        ok(chips.length >= 2, `floor levels rendered (${chips.join(', ')})`, `levels: ${chips.join(', ')}`)
 
         // The room hit must land on the right floor.
         const on = await page.evaluate(() =>
-          document.querySelector('#floor-bar .fb-chips button.on')?.dataset.level)
+          document.querySelector('#floor-bar .fb-levels button.on')?.dataset.level)
         ok(on === String(room.level), `"${room.name}" opened floor ${room.level}`, `active chip: ${on}`)
 
         // Close and reopen via a real map click on the building footprint.
@@ -247,7 +247,7 @@ async function check(name, width, height, theme) {
           if (reopened) {
             const target = String(planLevels[planLevels.length - 1])
             await page.evaluate((lvl) => {
-              const btn = document.querySelector(`#floor-bar .fb-chips button[data-level="${lvl}"]`)
+              const btn = document.querySelector(`#floor-bar .fb-levels button[data-level="${lvl}"]`)
               if (btn) btn.click()
             }, target)
             await page.waitForFunction(() => {

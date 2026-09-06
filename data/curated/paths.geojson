@@ -2,7 +2,7 @@
   "type": "FeatureCollection",
   "_source": "OpenStreetMap (ODbL)",
   "_sample": false,
-  "_readme": "Walkable paths and drivable roads. The roads in this file came from OpenStreetMap (ODbL) \u2014 a community base to trace against. Trace more with the in-app draw tool: kind (path | road | steps) and optional surface (paved | unpaved). Routing topology comes from exact coordinate identity: where two lines join, their shared endpoints MUST be the same point, so snap new lines to existing endpoints.",
+  "_readme": "Walkable paths and drivable roads. The roads in this file came from OpenStreetMap (ODbL) — a community base to trace against. Trace more with the in-app draw tool: kind (path | road | steps) and optional surface (paved | unpaved). Routing topology comes from exact coordinate identity: where two lines join, their shared endpoints MUST be the same point, so snap new lines to existing endpoints.",
   "features": [
     {
       "type": "Feature",
@@ -11275,6 +11275,42 @@
           [
             77.677908,
             12.891667
+          ]
+        ],
+        "type": "LineString"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "kind": "path",
+        "surface": "paved"
+      },
+      "geometry": {
+        "coordinates": [
+          [
+            77.67507182685267,
+            12.894552376342787
+          ],
+          [
+            77.6747745143216,
+            12.893832142083198
+          ],
+          [
+            77.67481112846667,
+            12.893786413115777
+          ],
+          [
+            77.67535814776033,
+            12.89383762065846
+          ],
+          [
+            77.67541410589291,
+            12.893878809325415
+          ],
+          [
+            77.67547691604159,
+            12.894040224310771
           ]
         ],
         "type": "LineString"

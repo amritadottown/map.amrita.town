@@ -350,7 +350,7 @@ for (const file of await walk(srcDir)) {
 }
 
 // Elements the app creates at runtime rather than declaring in the markup.
-const RUNTIME_IDS = new Set(['route-badge', 'floor-bar', 'layers-scrim'])
+const RUNTIME_IDS = new Set(['route-bar', 'floor-bar', 'layers-scrim'])
 
 const orphans = [...wanted].filter(([id]) => !present.has(id) && !RUNTIME_IDS.has(id))
 ok(orphans.length === 0, `all ${wanted.size} referenced ids exist in index.html`,

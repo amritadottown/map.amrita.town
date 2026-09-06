@@ -3,12 +3,12 @@ import 'maplibre-gl-draw/dist/mapbox-gl-draw.css'
 import maplibregl from 'maplibre-gl'
 import MapboxDraw from 'maplibre-gl-draw'
 import type { Campus, GeoData, Graph, Poi, Profile } from './types'
-import { buildStyle } from './map/style'
+import { buildStyle, drawTints } from './map/style'
 import { Router, humanEta, humanDistance } from './route/router'
 import { SearchIndex, type Hit } from './search/engine'
 import { initPalette, openPalette } from './ui/palette'
 import { initPanel, showAbout, showBuilding, showPoi, showRoom, hidePanel } from './ui/panel'
-import { toggle as toggleTheme, onThemeChange, resolved } from './ui/theme'
+import { cycle as cycleTheme, onThemeChange, resolved, current as currentChoice } from './ui/theme'
 
 const boot = document.getElementById('boot')!
 const base = import.meta.env.BASE_URL
@@ -132,34 +132,34 @@ async function start() {
         ['in', ['get', 'cat'], ['literal', [...active]]],
       ])
     }
-    paintChips()
+    paintFilters()
   }
 
-  /* ── layer chips ──────────────────────────────────────────────────────── */
+  /* ── layer filters ───────────────────────────────────────────────────── */
 
   const rail = document.getElementById('layers')!
   const cats = Object.entries(campus.categories)
     .filter(([c]) => campus.meta.counts[c])
     .sort((a, b) => (campus.meta.counts[b[0]] ?? 0) - (campus.meta.counts[a[0]] ?? 0))
 
-  const chipBox = document.getElementById('layer-chips')!
+  const filterBox = document.getElementById('layer-filters')!
   const layersBtn = document.getElementById('layers-btn')!
 
   function paintRail() {
-    chipBox.innerHTML = cats.map(([c, meta]) =>
-      `<button class="chip" data-cat="${c}" aria-pressed="false" style="color:${catColour(c)}"
+    filterBox.innerHTML = cats.map(([c, meta]) =>
+      `<button class="filter-btn" data-cat="${c}" aria-pressed="false" style="--cat:${catColour(c)}"
          title="${meta.label} · ${campus.meta.counts[c]}">
          <span class="dot"></span>${meta.label}<span class="n">${campus.meta.counts[c]}</span>
        </button>`).join('')
-    paintChips()
+    paintFilters()
   }
   paintRail()
 
-  function paintChips() {
-    chipBox.querySelectorAll<HTMLElement>('.chip').forEach((c) =>
+  function paintFilters() {
+    filterBox.querySelectorAll<HTMLElement>('.filter-btn').forEach((c) =>
       c.setAttribute('aria-pressed', String(active.has(c.dataset.cat!))))
     layersBtn.querySelector('.n')!.textContent = `${active.size}`
-    layersBtn.setAttribute('aria-label', `Layers — ${active.size} of ${cats.length} shown`)
+    layersBtn.setAttribute('aria-label', `layers — ${active.size} of ${cats.length} shown`)
   }
 
   rail.addEventListener('click', (e) => {
@@ -167,9 +167,9 @@ async function start() {
     if (t.closest('.layers-close')) { closeLayers(); return }
     if (t.closest('[data-all]')) { cats.forEach(([c]) => active.add(c)); refreshPois(); return }
     if (t.closest('[data-none]')) { active.clear(); refreshPois(); return }
-    const chip = t.closest('.chip') as HTMLElement | null
-    if (!chip) return
-    const c = chip.dataset.cat!
+    const btn = t.closest('.filter-btn') as HTMLElement | null
+    if (!btn) return
+    const c = btn.dataset.cat!
     active.has(c) ? active.delete(c) : active.add(c)
     refreshPois()
   })
@@ -195,8 +195,8 @@ async function start() {
 
   /* ── multi-floor ──────────────────────────────────────────────────────── */
 
-  const FLOOR_DIM: Record<'light' | 'dark', string> = { dark: '#202832', light: '#d2cdc0' }
-  const FLOOR_FOCUS: Record<'light' | 'dark', string> = { dark: '#61d47c', light: '#1d7a41' }
+  const FLOOR_DIM: Record<'light' | 'dark', string> = { dark: '#262626', light: '#e3dbc9' }
+  const FLOOR_FOCUS: Record<'light' | 'dark', string> = { dark: '#e0527a', light: '#ae0c3e' }
 
   function mixHex(a: string, b: string, t: number): string {
     const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16)
@@ -248,8 +248,8 @@ async function start() {
   floorBar.hidden = true
   floorBar.innerHTML = `
     <span class="fb-title"></span>
-    <span class="fb-chips"></span>
-    <button class="x" data-close aria-label="Close floor view">&times;</button>`
+    <span class="fb-levels"></span>
+    <button class="x" data-close aria-label="close floor view">&times;</button>`
   document.body.append(floorBar)
 
   function paintFloorChips() {
@@ -257,7 +257,7 @@ async function start() {
     const plan = geo.floors[activeFloor.building]
     const title = floorBar.querySelector('.fb-title')!
     title.textContent = activeFloor.building
-    const box = floorBar.querySelector('.fb-chips')!
+    const box = floorBar.querySelector('.fb-levels')!
     box.innerHTML = (plan?.levels ?? []).map((l) =>
       `<button type="button" data-level="${l}" class="${l === activeFloor!.level ? 'on' : ''}"
          aria-pressed="${l === activeFloor!.level}">${l === 0 ? 'G' : l}</button>`).join('')
@@ -361,7 +361,7 @@ async function start() {
   let lastRoute: { seconds: number; metres: number } | null = null
 
   const badge = document.createElement('div')
-  badge.id = 'route-badge'
+  badge.id = 'route-bar'
   badge.hidden = true
   document.body.append(badge)
 
@@ -382,8 +382,8 @@ async function start() {
     if (!r) {
       lastRoute = null
       badge.hidden = false
-      badge.innerHTML = `<span>No path found on the mapped network</span>
-        <button class="x" data-clear aria-label="Clear route">&times;</button>`
+      badge.innerHTML = `<span>no path found on the mapped network</span>
+        <button class="x" data-clear aria-label="clear route">&times;</button>`
       src?.setData({ type: 'FeatureCollection', features: [] })
       return
     }
@@ -408,7 +408,7 @@ async function start() {
         <button data-mode="bike" class="${profile === 'bike' ? 'on' : ''}">cycle</button>
       </span>
       <span class="via">${origin ? '' : 'from campus centre · '}to ${escapeHtml(target.label)}${notes ? ` · ${notes}` : ''}</span>
-      <button class="x" data-clear aria-label="Clear route">&times;</button>`
+      <button class="x" data-clear aria-label="clear route">&times;</button>`
 
     map.fitBounds(bounds(r.coords), { padding: { top: 80, bottom: 110, left: 60, right: 380 }, maxZoom: 17.5 })
   }
@@ -419,12 +419,13 @@ async function start() {
     if (t.dataset.mode) { profile = t.dataset.mode as Profile; drawRoute() }
   })
 
-  function routeTo(lat: number, lon: number, label: string) {
-    target = { lat, lon, label }
-    drawRoute()
-  }
+  let geoRequested = false
 
-  map.on('load', () => {
+  // The browser prompts for location permission on the first call, so it
+  // only happens when the user actually asks for a route — never on load.
+  function ensureOrigin() {
+    if (origin || geoRequested) return
+    geoRequested = true
     navigator.geolocation?.getCurrentPosition(
       (pos) => {
         const { latitude: lat, longitude: lon } = pos.coords
@@ -436,7 +437,13 @@ async function start() {
       () => {},
       { timeout: 6000, maximumAge: 120_000 },
     )
-  })
+  }
+
+  function routeTo(lat: number, lon: number, label: string) {
+    target = { lat, lon, label }
+    ensureOrigin()
+    drawRoute()
+  }
 
   /* ── selection ────────────────────────────────────────────────────────── */
 
@@ -531,20 +538,21 @@ async function start() {
     routeTo: (hit) => { if (hit.lat != null) routeTo(hit.lat, hit.lon!, hit.title) },
   })
 
-  /* ── chrome ───────────────────────────────────────────────────────────── */
-
-  document.getElementById('brand-btn')!.addEventListener('click', () => showAbout(campus))
-
   /* ── theme ────────────────────────────────────────────────────────────── */
 
   const themeBtn = document.getElementById('theme-btn')!
+  // The canonical cycle: auto → light → dark. The button shows where it sits.
   const paintThemeBtn = () => {
-    const dark = resolved() === 'dark'
-    themeBtn.textContent = dark ? '☾' : '☀'
-    themeBtn.title = dark ? 'Switch to light' : 'Switch to dark'
+    const t = currentChoice()
+    themeBtn.textContent = t
+    themeBtn.title = t === 'auto'
+      ? 'theme: auto — follow the system. click to force light.'
+      : t === 'light'
+        ? 'theme: light. click for dark.'
+        : 'theme: dark. click to follow the system again.'
   }
   paintThemeBtn()
-  themeBtn.addEventListener('click', () => { toggleTheme(); paintThemeBtn() })
+  themeBtn.addEventListener('click', () => { cycleTheme(); paintThemeBtn() })
 
   onThemeChange((t) => {
     shadeCache.clear()
@@ -569,6 +577,7 @@ async function start() {
           .filter((f) => f.properties?.['_draft'] === true)
         try { map.removeControl(draw) } catch { /* not added */ }
         map.addControl(draw, 'top-left')
+        tintDraw()
         for (const f of saved) {
           try { draw.add(f) } catch { /* noop */ }
         }
@@ -604,6 +613,17 @@ async function start() {
     }
     // Translucent building fills so rooftops show through the imagery.
     map.setPaintProperty('building', 'fill-opacity', on ? (resolved() === 'dark' ? 0.25 : 0.35) : 1)
+    // White roads glare on imagery — most in light mode. Fade the network
+    // while satellite is on; base opacities come from src/map/style.ts.
+    const dark = resolved() === 'dark'
+    const roadPaint: Record<string, number> = on
+      ? dark
+        ? { 'road-case': 0.3, road: 0.22, path: 0.22, 'path-steps': 0.22 }
+        : { 'road-case': 0.2, road: 0.14, path: 0.14, 'path-steps': 0.14 }
+      : { 'road-case': 0.45, road: 0.35, path: 0.35, 'path-steps': 0.35 }
+    for (const [id, opacity] of Object.entries(roadPaint)) {
+      if (map.getLayer(id)) map.setPaintProperty(id, 'line-opacity', opacity)
+    }
   }
 
   satBtn.addEventListener('click', () => {
@@ -656,7 +676,7 @@ async function start() {
     boundary: 'polygon', building: 'polygon', path: 'line', poi: 'point', room: 'polygon',
   }
   const DRAW_LABELS: Record<DrawLayer, string> = {
-    boundary: 'Boundary', building: 'Building', path: 'Path', poi: 'POI', room: 'Room',
+    boundary: 'boundary', building: 'building', path: 'path', poi: 'poi', room: 'room',
   }
   const FILE_LABEL: Record<string, string> = {
     'boundary.geojson': 'boundary', 'buildings.geojson': 'building', 'paths.geojson': 'path',
@@ -667,14 +687,14 @@ async function start() {
     poi: 'draw_point', room: 'draw_polygon',
   }
   const DRAW_HINTS: Record<DrawLayer, string> = {
-    boundary: 'Click along the campus wall. One polygon per parcel — the hostel block across the road is a second polygon.',
-    building: 'Click the building corners.',
-    path: 'Click the path ends. Shared joints must reuse the same point.',
-    poi: 'Click where the place is.',
-    room: 'Click the room corners. Rooms on one floor must not overlap.',
+    boundary: 'click along the campus wall. one polygon per parcel — the hostel block across the road is a second polygon.',
+    building: 'click the building corners.',
+    path: 'click the path ends. shared joints must reuse the same point.',
+    poi: 'click where the place is.',
+    room: 'click the room corners. rooms on one floor must not overlap.',
   }
-  const DRAW_KEYS = '<kbd>F</kbd> finish · <kbd>Esc</kbd> cancel · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo last point'
-  const EDIT_KEYS = 'Alt+click a selected draft adds/removes a point · double-click a draft to edit it'
+  const DRAW_KEYS = '<kbd>f</kbd> finish · <kbd>esc</kbd> cancel · <kbd>ctrl</kbd>+<kbd>z</kbd> undo last point'
+  const EDIT_KEYS = 'alt+click a selected draft adds/removes a point · double-click a draft to edit it'
 
   let draw: MapboxDraw | null = null
   let drawOn = false
@@ -696,38 +716,38 @@ async function start() {
   }
 
   function propsFormHtml(layer: DrawLayer): string {
-    const actions = '<div class="dt-form-actions"><button type="submit">Add to map</button>' +
-      '<button type="button" data-dt-form-cancel>Discard</button></div>'
+    const actions = '<div class="dt-form-actions"><button type="submit">add to map</button>' +
+      '<button type="button" data-dt-form-cancel>discard</button></div>'
     switch (layer) {
       case 'building':
         return `<form class="dt-form">
-          <label>Name <input name="name" required placeholder="e.g. Admin Block"></label>
-          <label>Category <select name="cat"><option value="">none</option>${catOptions()}</select></label>
-          <label>Levels <input name="levels" type="number" min="1" value="1"></label>
+          <label>name <input name="name" required placeholder="e.g. admin block"></label>
+          <label>category <select name="cat"><option value="">none</option>${catOptions()}</select></label>
+          <label>levels <input name="levels" type="number" min="1" value="1"></label>
           ${actions}</form>`
       case 'boundary':
         return `<form class="dt-form">
-          <label>Name <input name="name" value="Amrita Vishwa Vidyapeetam, Bengaluru"></label>
-          <p class="dt-warn">One polygon per parcel — draw the hostel block as a second boundary polygon.</p>
+          <label>name <input name="name" value="Amrita Vishwa Vidyapeetam, Bengaluru"></label>
+          <p class="dt-warn">one polygon per parcel — draw the hostel block as a second boundary polygon.</p>
           ${actions}</form>`
       case 'path':
         return `<form class="dt-form">
-          <label>Kind <select name="kind"><option value="road" selected>road</option><option value="path">path</option><option value="steps">steps</option></select></label>
-          <label>Surface <select name="surface"><option value="">unknown</option><option value="paved">paved</option><option value="unpaved">unpaved</option></select></label>
+          <label>kind <select name="kind"><option value="road" selected>road</option><option value="path">path</option><option value="steps">steps</option></select></label>
+          <label>surface <select name="surface"><option value="">unknown</option><option value="paved">paved</option><option value="unpaved">unpaved</option></select></label>
           ${actions}</form>`
       case 'poi':
         return `<form class="dt-form">
-          <label>Name <input name="name" required placeholder="e.g. Main Gate"></label>
-          <label>Category <select name="cat" required><option value="">choose…</option>${catOptions()}</select></label>
-          <label>Building <input name="building" list="dt-building-list" placeholder="optional — indoor place"></label>
-          <label>Floor <input name="level" type="number" min="0" placeholder="0 = ground"></label>
+          <label>name <input name="name" required placeholder="e.g. main gate"></label>
+          <label>category <select name="cat" required><option value="">choose…</option>${catOptions()}</select></label>
+          <label>building <input name="building" list="dt-building-list" placeholder="optional — indoor place"></label>
+          <label>floor <input name="level" type="number" min="0" placeholder="0 = ground"></label>
           ${actions}</form>`
       case 'room':
         return `<form class="dt-form">
-          <label>Building <input name="building" list="dt-building-list" required placeholder="exact building name"></label>
-          <label>Floor <input name="level" type="number" min="0" required placeholder="0 = ground"></label>
-          <label>Room <input name="room" required placeholder="e.g. Room 203"></label>
-          <label>Kind <select name="kind"><option value="room">room</option><option value="corridor">corridor</option><option value="stairs">stairs</option><option value="lift">lift</option><option value="toilet">toilet</option></select></label>
+          <label>building <input name="building" list="dt-building-list" required placeholder="exact building name"></label>
+          <label>floor <input name="level" type="number" min="0" required placeholder="0 = ground"></label>
+          <label>room <input name="room" required placeholder="e.g. room 203"></label>
+          <label>kind <select name="kind"><option value="room">room</option><option value="corridor">corridor</option><option value="stairs">stairs</option><option value="lift">lift</option><option value="toilet">toilet</option></select></label>
           ${actions}</form>`
     }
   }
@@ -742,21 +762,21 @@ async function start() {
     const placing = draw?.getMode().startsWith('draw_') ?? false
     const draftsHtml = drafts.length
       ? `<ul class="dt-drafts">${drafts.map((d) =>
-          `<li><span class="dt-tag">${FILE_LABEL[d.file] ?? d.file}</span>` +
+          `<li><span class="dt-file">${FILE_LABEL[d.file] ?? d.file}</span>` +
           `<span class="dt-name">${escapeHtml(d.label)}</span>` +
-          `<button type="button" class="x" data-dt-del="${d.id}" aria-label="Delete draft">&times;</button></li>`).join('')}</ul>`
+          `<button type="button" class="x" data-dt-del="${d.id}" aria-label="delete draft">&times;</button></li>`).join('')}</ul>`
       : ''
     drawToolbar.innerHTML =
-      `<div class="dt-head"><span class="dt-title">Draw</span>` +
-      `<button type="button" class="x" data-dt-close aria-label="Close draw mode">&times;</button></div>` +
+      `<div class="dt-head"><span class="dt-title">draw</span>` +
+      `<button type="button" class="x" data-dt-close aria-label="close draw mode">&times;</button></div>` +
       `<div class="dt-layers">${chips}</div>` +
       `<p class="dt-hint">${DRAW_HINTS[drawLayer]}<br><span class="dt-sub">${placing ? DRAW_KEYS : EDIT_KEYS}</span></p>` +
       (pendingForm ? formHtml
         : placing
-          ? '<p class="dt-mode">Placing points… F or Enter to finish.</p>'
-          : '<p class="dt-mode">Pick a layer chip to start drawing. Double-click a draft to edit its points.</p>') +
+          ? '<p class="dt-mode">placing points… f or enter to finish.</p>'
+          : '<p class="dt-mode">pick a layer to start drawing. double-click a draft to edit its points.</p>') +
       draftsHtml +
-      `<div class="dt-save"><button type="button" data-dt-save ${drafts.length ? '' : 'disabled'}>Save ${drafts.length}</button>` +
+      `<div class="dt-save"><button type="button" data-dt-save ${drafts.length ? '' : 'disabled'}>save ${drafts.length}</button>` +
       `<span class="dt-msg"></span></div>`
   }
 
@@ -768,10 +788,42 @@ async function start() {
     if (!el) return
     const drawing = draw?.getMode().startsWith('draw_') ?? false
     el.textContent = drawing
-      ? 'Placing points… F or Enter to finish.'
-      : 'Pick a layer chip to start drawing. Double-click a draft to edit its points.'
+      ? 'placing points… f or enter to finish.'
+      : 'pick a layer to start drawing. double-click a draft to edit its points.'
     const sub = drawToolbar.querySelector('.dt-hint .dt-sub')
     if (sub) sub.innerHTML = drawing ? DRAW_KEYS : EDIT_KEYS
+  }
+
+  /** Paint the draw plugin's on-canvas layers in brand colours. The plugin
+   *  ships cyan/amber defaults; both themes get the accent for active shapes,
+   *  the boundary grey for inactive ones and the base as vertex halo. */
+  function tintDraw() {
+    if (!draw) return
+    const t = resolved() === 'dark' ? 'dark' : 'light'
+    const tints = drawTints(t)
+    const paint: Record<string, Record<string, string>> = {
+      'gl-draw-polygon-fill-inactive': { 'fill-color': tints.inactive, 'fill-outline-color': tints.inactive },
+      'gl-draw-polygon-fill-active': { 'fill-color': tints.active, 'fill-outline-color': tints.active },
+      'gl-draw-polygon-stroke-inactive': { 'line-color': tints.inactive },
+      'gl-draw-polygon-stroke-active': { 'line-color': tints.active },
+      'gl-draw-polygon-midpoint': { 'circle-color': tints.active },
+      'gl-draw-line-inactive': { 'line-color': tints.inactive },
+      'gl-draw-line-active': { 'line-color': tints.active },
+      'gl-draw-polygon-and-line-vertex-stroke-inactive': { 'circle-color': tints.halo },
+      'gl-draw-polygon-and-line-vertex-inactive': { 'circle-color': tints.active },
+      'gl-draw-point-point-stroke-inactive': { 'circle-color': tints.halo },
+      'gl-draw-point-inactive': { 'circle-color': tints.inactive },
+      'gl-draw-point-stroke-active': { 'circle-color': tints.halo },
+      'gl-draw-point-active': { 'circle-color': tints.active },
+      'gl-draw-polygon-fill-static': { 'fill-color': tints.static, 'fill-outline-color': tints.static },
+      'gl-draw-polygon-stroke-static': { 'line-color': tints.static },
+      'gl-draw-line-static': { 'line-color': tints.static },
+      'gl-draw-point-static': { 'circle-color': tints.static },
+    }
+    for (const [id, props] of Object.entries(paint)) {
+      if (!map.getLayer(id)) continue
+      for (const [k, v] of Object.entries(props)) map.setPaintProperty(id, k, v)
+    }
   }
 
   function ensureDraw(): MapboxDraw {
@@ -782,6 +834,7 @@ async function start() {
         defaultMode: 'simple_select',
       })
       map.addControl(draw, 'top-left')
+      tintDraw()
       // maplibre-gl-draw 1.6.x has no .on() of its own — the instance only
       // exposes add/get/delete/changeMode. Its events (draw.create, …) are
       // fired on the MAP, so listen there. These listeners live on the map
@@ -1016,9 +1069,9 @@ async function start() {
     switch (layer) {
       case 'building': {
         const name = get('name')
-        if (!name) { setDrawMsg('Name is required.'); return }
+        if (!name) { setDrawMsg('name is required.'); return }
         const cat = get('cat')
-        if (cat && !campus.categories[cat]) { setDrawMsg('Unknown category.'); return }
+        if (cat && !campus.categories[cat]) { setDrawMsg('unknown category.'); return }
         props.name = name
         if (cat) props.cat = cat
         props.levels = Math.max(1, Math.round(+get('levels')) || 1)
@@ -1034,13 +1087,13 @@ async function start() {
       case 'poi': {
         const name = get('name')
         const cat = get('cat')
-        if (!name) { setDrawMsg('Name is required.'); return }
-        if (!cat || !campus.categories[cat]) { setDrawMsg('Choose a category.'); return }
+        if (!name) { setDrawMsg('name is required.'); return }
+        if (!cat || !campus.categories[cat]) { setDrawMsg('choose a category.'); return }
         props.name = name
         props.cat = cat
         const b = get('building')
         if (b) {
-          if (get('level') === '') { setDrawMsg('Floor is required when the place is inside a building.'); return }
+          if (get('level') === '') { setDrawMsg('floor is required when the place is inside a building.'); return }
           props.building = b
           props.level = Math.round(+get('level'))
         }
@@ -1050,7 +1103,7 @@ async function start() {
         const building = get('building')
         const room = get('room')
         if (!building || get('level') === '' || !room) {
-          setDrawMsg('Building, floor and room name are required.')
+          setDrawMsg('building, floor and room name are required.')
           return
         }
         props.building = building
@@ -1334,9 +1387,6 @@ async function start() {
     } catch { /* deployed site — draw stays disabled */ }
   })()
 
-  document.getElementById('brand-btn')!.title =
-    `${campus.pois.length} places · ${campus.rooms?.length ?? 0} rooms — click for sources`
-
   document.addEventListener('keydown', (e) => {
     if (drawOn) {
       if (e.key === 'Escape') {
@@ -1386,7 +1436,7 @@ async function start() {
   const bootTimer = setTimeout(() => {
     if (boot.classList.contains('gone')) return
     boot.className = 'err'
-    boot.textContent = 'The map did not finish loading. Check the browser console — and please open an issue at github.com/nithitsuki/map.amrita.town.'
+    boot.textContent = 'The map did not finish loading. Check the browser console — and please open an issue at github.com/amritadottown/map.amrita.town.'
   }, 12_000)
 
   map.on('error', (e) => {

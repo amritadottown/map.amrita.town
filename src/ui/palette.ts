@@ -12,8 +12,8 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 
 const GROUP: Record<Kind, string> = {
-  place: 'Places', room: 'Rooms',
-  layer: 'Layers', action: 'Commands', hint: '',
+  place: 'places', room: 'rooms',
+  layer: 'layers', action: 'commands', hint: '',
 }
 const ORDER: Kind[] = ['place', 'room', 'layer', 'action']
 
@@ -200,14 +200,14 @@ function paintCursor() {
 function welcome() {
   const ex = host.index.examples()
   return `<div class="empty">
-    <b>Rooms, places and canteens</b>
+    <b>rooms, places and canteens</b>
     ${ex.map((e) => `<code data-try="${esc(e)}">${esc(e)}</code>`).join('')}
   </div>`
 }
 
 function empty(q: string) {
   return `<div class="empty">
-    <b>No match for “${esc(q)}”</b>
+    <b>no match for “${esc(q)}”</b>
     ${host.index.examples().slice(0, 4).map((e) => `<code data-try="${esc(e)}">${esc(e)}</code>`).join('')}
   </div>`
 }
