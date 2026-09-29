@@ -169,5 +169,5 @@ export function showAbout(campus: Campus) {
     <p class="src">built ${esc(campus.meta.built)} · ${esc(campus.meta.attribution)}
     · <a href="${REPO}" target="_blank" rel="noopener">source</a></p>`
 
-  shell('amrita.town', 'about & data sources', body)
+  shell('nithitsuki.com', 'about & data sources', body)
 }

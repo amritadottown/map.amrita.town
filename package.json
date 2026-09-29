@@ -28,7 +28,7 @@
     "maplibre-gl": "^4.7.1",
     "maplibre-gl-draw": "1.6.9"
   },
-  "homepage": "https://map.amrita.town",
+  "homepage": "https://map.nithitsuki.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/amritadottown/map.amrita.town.git"

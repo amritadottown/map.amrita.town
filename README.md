@@ -1,4 +1,4 @@
-# amrita.town
+# nithitsuki.com
 
 A multi-floor map of Amrita Vishwa Vidyapeetam, Bengaluru.
 
